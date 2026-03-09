@@ -15,16 +15,19 @@ const ALLOWED_ORIGINS = new Set([
 ])
 
 function corsHeaders(origin: string, env: Env): Record<string, string> {
-  // In development allow local Vite origins; in production restrict to same host
+  // In development allow local Vite origins only; in production disallow cross-origin requests
   const allowedOrigin = env.ENVIRONMENT === 'development' && ALLOWED_ORIGINS.has(origin)
     ? origin
-    : origin // echo origin – deploy behind a custom domain for stricter control
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
+    : ''
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Vary': 'Origin',
   }
+  if (allowedOrigin) {
+    headers['Access-Control-Allow-Origin'] = allowedOrigin
+  }
+  return headers
 }
 
 function isValidRoomId(id: string): boolean {

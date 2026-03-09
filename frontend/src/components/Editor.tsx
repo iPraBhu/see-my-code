@@ -26,7 +26,6 @@ export default function Editor({ doc, provider, language, theme }: Props) {
       const model = editor.getModel()
       if (!model) return
 
-      // @ts-ignore
       bindingRef.current = new MonacoBinding(
         yText,
         model,
