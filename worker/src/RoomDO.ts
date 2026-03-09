@@ -49,7 +49,7 @@ export class RoomDO implements DurableObject {
       : message
 
     for (const session of this.sessions) {
-      if (session !== ws && session.readyState === WebSocket.READY_STATE_OPEN) {
+      if (session !== ws && session.readyState === WebSocket.OPEN) {
         try {
           session.send(data)
         } catch {

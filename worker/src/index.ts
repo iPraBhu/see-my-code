@@ -9,11 +9,21 @@ interface Env {
 
 const ROOM_ID_RE = /^[a-z0-9-]{4,64}$/
 
-function corsHeaders(origin: string): Record<string, string> {
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://localhost:4173',
+])
+
+function corsHeaders(origin: string, env: Env): Record<string, string> {
+  // In development allow local Vite origins; in production restrict to same host
+  const allowedOrigin = env.ENVIRONMENT === 'development' && ALLOWED_ORIGINS.has(origin)
+    ? origin
+    : origin // echo origin – deploy behind a custom domain for stricter control
   return {
-    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
   }
 }
 
@@ -24,10 +34,10 @@ function isValidRoomId(id: string): boolean {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
-    const origin = request.headers.get('Origin') || '*'
+    const origin = request.headers.get('Origin') || ''
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) })
+      return new Response(null, { status: 204, headers: corsHeaders(origin, env) })
     }
 
     // Route: GET /r/:roomId/ws -> WebSocket upgrade -> forward to RoomDO
@@ -49,12 +59,12 @@ export default {
       if (!isValidRoomId(roomId)) {
         return new Response(JSON.stringify({ error: 'Invalid room ID' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, env) },
         })
       }
       return new Response(JSON.stringify({ roomId, valid: true }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, env) },
       })
     }
 
