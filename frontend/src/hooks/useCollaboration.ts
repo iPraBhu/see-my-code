@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { generateUsername, generateColor } from '../lib/awareness'
@@ -9,43 +9,46 @@ export interface UserInfo {
   clientId: number
 }
 
+// In production the Worker and Pages app share the same domain.
+// Override via VITE_WS_URL for custom deployments.
+function getServerUrl(): string {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL as string
+  if (import.meta.env.DEV) return 'ws://localhost:8787'
+  return `wss://${location.host}`
+}
+
 export function useCollaboration(roomId: string) {
-  const docRef = useRef<Y.Doc | null>(null)
-  const providerRef = useRef<WebsocketProvider | null>(null)
+  const [doc, setDoc] = useState<Y.Doc | null>(null)
+  const [provider, setProvider] = useState<WebsocketProvider | null>(null)
   const [connected, setConnected] = useState(false)
   const [users, setUsers] = useState<UserInfo[]>([])
 
   useEffect(() => {
     if (!roomId) return
 
-    const doc = new Y.Doc()
-    docRef.current = doc
+    const ydoc = new Y.Doc()
 
-    const isDev = import.meta.env.DEV
-    const serverUrl = isDev
-      ? 'ws://localhost:8787'
-      : `wss://${location.host}`
+    const serverUrl = getServerUrl()
     const roomName = `r/${roomId}/ws`
 
-    const provider = new WebsocketProvider(serverUrl, roomName, doc, {
+    const wsProvider = new WebsocketProvider(serverUrl, roomName, ydoc, {
       connect: true,
     })
-    providerRef.current = provider
 
     const username = generateUsername()
     const color = generateColor()
 
-    provider.awareness.setLocalStateField('user', {
+    wsProvider.awareness.setLocalStateField('user', {
       name: username,
       color,
     })
 
-    provider.on('status', ({ status }: { status: string }) => {
+    wsProvider.on('status', ({ status }: { status: string }) => {
       setConnected(status === 'connected')
     })
 
     const updateUsers = () => {
-      const states = Array.from(provider.awareness.getStates().entries())
+      const states = Array.from(wsProvider.awareness.getStates().entries())
       const userList: UserInfo[] = states
         .filter(([, state]) => state.user)
         .map(([clientId, state]) => ({
@@ -56,22 +59,22 @@ export function useCollaboration(roomId: string) {
       setUsers(userList)
     }
 
-    provider.awareness.on('change', updateUsers)
+    wsProvider.awareness.on('change', updateUsers)
     updateUsers()
 
+    setDoc(ydoc)
+    setProvider(wsProvider)
+
     return () => {
-      provider.awareness.off('change', updateUsers)
-      provider.destroy()
-      doc.destroy()
-      docRef.current = null
-      providerRef.current = null
+      wsProvider.awareness.off('change', updateUsers)
+      wsProvider.destroy()
+      ydoc.destroy()
+      setDoc(null)
+      setProvider(null)
+      setConnected(false)
+      setUsers([])
     }
   }, [roomId])
 
-  return {
-    doc: docRef.current,
-    provider: providerRef.current,
-    connected,
-    users,
-  }
+  return { doc, provider, connected, users }
 }

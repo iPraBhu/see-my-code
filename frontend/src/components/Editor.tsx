@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import MonacoEditor from '@monaco-editor/react'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
+import { MonacoBinding } from 'y-monaco'
 
 interface Props {
   doc: Y.Doc | null
@@ -21,18 +22,16 @@ export default function Editor({ doc, provider, language, theme }: Props) {
       bindingRef.current = null
     }
 
-    import('y-monaco').then(({ MonacoBinding }) => {
-      const yText = ydoc.getText('content')
-      const model = editor.getModel()
-      if (!model) return
+    const yText = ydoc.getText('content')
+    const model = editor.getModel()
+    if (!model) return
 
-      bindingRef.current = new MonacoBinding(
-        yText,
-        model,
-        new Set([editor]),
-        wsProvider.awareness,
-      )
-    })
+    bindingRef.current = new MonacoBinding(
+      yText,
+      model,
+      new Set([editor]),
+      wsProvider.awareness,
+    )
   }
 
   const handleMount = (editor: any, _monaco: any) => {

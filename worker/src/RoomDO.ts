@@ -6,7 +6,6 @@ interface Env {
 }
 
 export class RoomDO implements DurableObject {
-  private sessions: Set<WebSocket> = new Set()
   private storage: NoOpStorage
 
   constructor(private state: DurableObjectState, private env: Env) {
@@ -21,7 +20,7 @@ export class RoomDO implements DurableObject {
     }
 
     if (url.pathname.endsWith('/info')) {
-      return Response.json({ clients: this.sessions.size })
+      return Response.json({ clients: this.state.getWebSockets().length })
     }
 
     return new Response('Not found', { status: 404 })
@@ -36,36 +35,34 @@ export class RoomDO implements DurableObject {
     const [client, server] = Object.values(pair)
 
     this.state.acceptWebSocket(server)
-    this.sessions.add(server)
 
     return new Response(null, { status: 101, webSocket: client })
   }
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     // TODO: Add rate limiting per client
-    // Broadcast to all other connected clients
+    // Broadcast to all other connected clients in this room
+    const sessions = this.state.getWebSockets()
     const data = typeof message === 'string'
       ? new TextEncoder().encode(message)
       : message
 
-    for (const session of this.sessions) {
-      if (session !== ws && session.readyState === WebSocket.OPEN) {
+    for (const session of sessions) {
+      if (session !== ws) {
         try {
           session.send(data)
         } catch {
-          this.sessions.delete(session)
+          // Session is gone; Hibernation API cleans it up automatically
         }
       }
     }
   }
 
   webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): void {
-    this.sessions.delete(ws)
     ws.close()
   }
 
   webSocketError(ws: WebSocket, _error: unknown): void {
-    this.sessions.delete(ws)
     ws.close()
   }
 }

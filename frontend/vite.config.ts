@@ -5,6 +5,15 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          monaco: ['@monaco-editor/react', 'monaco-editor'],
+          yjs: ['yjs', 'y-websocket', 'y-monaco'],
+        },
+      },
+    },
   },
   server: {
     proxy: {
